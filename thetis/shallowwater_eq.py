@@ -385,7 +385,10 @@ class HUDivTerm(ShallowWaterContinuityTerm):
     the form on the right hand side is used.
     """
     def residual(self, uv, eta, uv_old, eta_old, fields, fields_old, bnd_conditions=None):
-        total_h = self.depth.get_total_depth(eta_old)
+        if self.options.use_nonlinear_equations:
+            total_h = self.depth.get_total_depth(eta_old)
+        else:
+            total_h = self.depth.bathymetry_2d  # Linearise about geoid eta = 0
 
         hu_by_parts = self.u_continuity in ['dg', 'hdiv']
 
@@ -403,13 +406,19 @@ class HUDivTerm(ShallowWaterContinuityTerm):
                     eta_ext, uv_ext = self.get_bnd_functions(eta, uv, bnd_marker, bnd_conditions)
                     eta_ext_old, uv_ext_old = self.get_bnd_functions(eta_old, uv_old, bnd_marker, bnd_conditions)
                     # Compute linear riemann solution with eta, eta_ext, uv, uv_ext
-                    total_h_ext = self.depth.get_total_depth(eta_ext_old)
+                    if self.options.use_nonlinear_equations:
+                        total_h_ext = self.depth.get_total_depth(eta_ext_old)
+                    else:
+                        total_h_ext = self.depth.bathymetry_2d
                     h_av = 0.5*(total_h + total_h_ext)
                     eta_jump = eta - eta_ext
                     un_rie = 0.5*inner(uv + uv_ext, self.normal) + sqrt(g_grav/h_av)*eta_jump
                     un_jump = inner(uv_old - uv_ext_old, self.normal)
                     eta_rie = 0.5*(eta_old + eta_ext_old) + sqrt(h_av/g_grav)*un_jump
-                    h_rie = self.depth.get_total_depth(eta_rie)
+                    if self.options.use_nonlinear_equations:
+                        h_rie = self.depth.get_total_depth(eta_rie)
+                    else:
+                        h_rie = self.depth.bathymetry_2d
                     f += h_rie*un_rie*self.eta_test*ds_bnd
         else:
             f = div(total_h*uv)*self.eta_test*self.dx

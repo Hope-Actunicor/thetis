@@ -5,7 +5,7 @@ All options are type-checked and they are stored in traitlets Configurable
 objects.
 """
 from .configuration import *
-from .firedrake import Constant
+from firedrake import Constant
 
 
 class TimeStepperOptions(FrozenHasTraits):
@@ -105,6 +105,10 @@ class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
         'mat_type': 'aij',
+    }).tag(config=True)
+    solver_parameters_tracer = PETScSolverParameters({
+        'ksp_type': 'gmres',
+        'pc_type': 'sor',
     }).tag(config=True)
 
 

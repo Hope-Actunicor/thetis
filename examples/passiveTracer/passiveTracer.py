@@ -67,15 +67,26 @@ class PassiveTracerParameters():
 
         # Physical parameters
         self.diffusivity = Constant(0.1)
+        self.viscosity = Constant(1.0)
         self.uv = Constant(as_vector([1.0, 0.0]))
         self.elev = Constant(0.0)
-        self.bathymetry = Constant(1.0)
+        self.bathymetry = Constant(5.0)
 
         # Boundary conditions
-        neumann = {'diff_flux': Constant(0.0)}
-        dirichlet = {'value': Constant(0.0)}
-        outflow = {'open': None}
-        self.boundary_conditions = {1: dirichlet, 2: outflow, 3: neumann, 4: neumann}
+        self.boundary_conditions = {
+            'tracer': {
+                1: {'value': Constant(0.0)},      # inflow
+                2: {'open': None},                # outflow
+                3: {'diff_flux': Constant(0.0)},  # Neumann
+                4: {'diff_flux': Constant(0.0)},  # Neumann
+            },
+            'shallow_water': {
+                1: {'uv': Constant(as_vector([1.0, 0.0]))},  # inflow
+                2: {'elev': Constant(0.0)},                  # need impose constraint on elevation
+                3: {'un': Constant(0.0)},                    # free-slip
+                4: {'un': Constant(0.0)},                    # free-slip
+            }
+        }
 
     def ball(self, mesh, triple, scaling=1.0, eps=1.0e-10):
         x, y = SpatialCoordinate(mesh)
@@ -113,7 +124,7 @@ class PassiveTracerParameters():
         return assemble(kernel*sol*dx(degree=12))
 
 
-def solve_tracer(n, setup=1):
+def solve_tracer(n, setup=1, hydrodynamics=False):
     mesh2d = RectangleMesh(100*2**n, 20*2**n, 50, 10)
     P1_2d = FunctionSpace(mesh2d, "CG", 1)
 
@@ -128,14 +139,17 @@ def solve_tracer(n, setup=1):
     options.timestep = 20.0
     options.simulation_end_time = 18.0
     options.simulation_export_time = 18.0
-    options.fields_to_export = ['tracer_2d']
+    options.timestepper_options.solver_parameters['pc_factor_mat_solver_type'] = 'mumps'
+    options.timestepper_options.solver_parameters['snes_rtol'] = 1.0e-03
+    options.fields_to_export = ['tracer_2d', 'uv_2d', 'elev_2d']
     options.solve_tracer = True
     options.use_lax_friedrichs_tracer = True
-    options.tracer_only = True
+    options.tracer_only = not hydrodynamics
     options.horizontal_diffusivity = params.diffusivity
+    options.horizontal_viscosity = params.viscosity
     options.tracer_source_2d = source
-    solver_obj.assign_initial_conditions(tracer=source, uv=params.uv)
-    solver_obj.bnd_functions['tracer'] = params.boundary_conditions
+    solver_obj.assign_initial_conditions(tracer=source, uv=params.uv, elev=params.elev)
+    solver_obj.bnd_functions = params.boundary_conditions
     solver_obj.iterate()
 
     # Evaluate quantity of interest
@@ -146,5 +160,6 @@ def solve_tracer(n, setup=1):
 
 if __name__ == "__main__":
     refinement_level = 2
+    hydrodynamics = False
     for setup in (1, 2):
-        solve_tracer(refinement_level, setup=setup)
+        solve_tracer(refinement_level, setup=setup, hydrodynamics=hydrodynamics)

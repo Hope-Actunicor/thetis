@@ -5,7 +5,7 @@ All options are type-checked and they are stored in traitlets Configurable
 objects.
 """
 from .configuration import *
-from .firedrake import Constant
+from firedrake import Constant
 
 
 class TimeStepperOptions(FrozenHasTraits):
@@ -109,6 +109,10 @@ class ExplicitTimestepperOptions2d(ExplicitTimestepperOptions):
         'sub_ksp_type': 'preonly',
         'sub_pc_type': 'ilu',
         'mat_type': 'aij',
+    }).tag(config=True)
+    solver_parameters_tracer = PETScSolverParameters({
+        'ksp_type': 'gmres',
+        'pc_type': 'sor',
     }).tag(config=True)
 
 
@@ -526,6 +530,7 @@ class ModelOptions2d(CommonModelOptions):
     """Options for 2D depth-averaged shallow water model"""
     name = 'Depth-averaged 2D model'
     solve_tracer = Bool(False, help='Solve tracer transport').tag(config=True)
+    use_tracer_conservative_form = Bool(False, help='Solve 2D tracer transport in the conservative form').tag(config=True)
     use_wetting_and_drying = Bool(
         False, help=r"""bool: Turn on wetting and drying
 

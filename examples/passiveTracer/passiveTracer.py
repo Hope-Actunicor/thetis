@@ -67,7 +67,8 @@ class PassiveTracerParameters():
 
         # Physical parameters
         self.diffusivity = Constant(0.1)
-        self.viscosity = Constant(1.0e-08)
+        # self.viscosity = Constant(1.0e-08)
+        self.viscosity = None
         self.drag = Constant(0.0025)
         self.uv = Constant(as_vector([1.0, 0.0]))
         self.elev = Constant(0.0)
@@ -172,7 +173,7 @@ def solve_tracer(n, setup=1, hydrodynamics=False):
 
 
 if __name__ == "__main__":
-    refinement_level = 1
+    refinement_level = 2
     hydrodynamics = True
     setup = 1
     solve_tracer(refinement_level, setup=setup, hydrodynamics=hydrodynamics)

@@ -67,7 +67,8 @@ class PassiveTracerParameters():
 
         # Physical parameters
         self.diffusivity = Constant(0.1)
-        self.viscosity = Constant(1.0)
+        self.viscosity = Constant(1.0e-08)
+        self.drag = Constant(0.0025)
         self.uv = Constant(as_vector([1.0, 0.0]))
         self.elev = Constant(0.0)
         self.bathymetry = Constant(5.0)
@@ -81,8 +82,8 @@ class PassiveTracerParameters():
                 4: {'diff_flux': Constant(0.0)},  # Neumann
             },
             'shallow_water': {
-                1: {'uv': Constant(as_vector([1.0, 0.0]))},  # inflow
-                2: {'elev': Constant(0.0)},                  # need impose constraint on elevation
+                1: {'uv': Constant(as_vector([1.0, 0.0])), 'elev': Constant(0.0)},  # inflow
+                2: {'uv': Constant(as_vector([1.0, 0.0])), 'elev': Constant(0.0)},  # outflow
                 3: {'un': Constant(0.0)},                    # free-slip
                 4: {'un': Constant(0.0)},                    # free-slip
             }
@@ -140,16 +141,28 @@ def solve_tracer(n, setup=1, hydrodynamics=False):
     options.simulation_end_time = 18.0
     options.simulation_export_time = 18.0
     options.timestepper_options.solver_parameters['pc_factor_mat_solver_type'] = 'mumps'
-    options.timestepper_options.solver_parameters['snes_rtol'] = 1.0e-03
+    options.timestepper_options.solver_parameters['snes_monitor'] = None
     options.fields_to_export = ['tracer_2d', 'uv_2d', 'elev_2d']
-    options.solve_tracer = True
-    options.use_lax_friedrichs_tracer = True
-    options.tracer_only = not hydrodynamics
+
+    # Hydrodynamics
+    options.element_family = 'dg-dg'
     options.horizontal_diffusivity = params.diffusivity
     options.horizontal_viscosity = params.viscosity
+    options.quadratic_drag_coefficient = params.drag
+    options.use_lax_friedrichs_velocity = True
+    options.lax_friedrichs_velocity_scaling_factor = Constant(1.0)
+
+    # Passive tracer
+    options.solve_tracer = True
+    options.tracer_only = not hydrodynamics
+    options.use_lax_friedrichs_tracer = True
+    options.lax_friedrichs_tracer_scaling_factor = Constant(1.0)
     options.tracer_source_2d = source
-    solver_obj.assign_initial_conditions(tracer=source, uv=params.uv, elev=params.elev)
+
+    # Initial and boundary conditions
     solver_obj.bnd_functions = params.boundary_conditions
+    uv_init = Constant(as_vector([1.0e-08, 0.0])) if hydrodynamics else params.uv
+    solver_obj.assign_initial_conditions(tracer=source, uv=uv_init, elev=params.elev)
     solver_obj.iterate()
 
     # Evaluate quantity of interest
@@ -159,7 +172,7 @@ def solve_tracer(n, setup=1, hydrodynamics=False):
 
 
 if __name__ == "__main__":
-    refinement_level = 2
-    hydrodynamics = False
-    for setup in (1, 2):
-        solve_tracer(refinement_level, setup=setup, hydrodynamics=hydrodynamics)
+    refinement_level = 1
+    hydrodynamics = True
+    setup = 1
+    solve_tracer(refinement_level, setup=setup, hydrodynamics=hydrodynamics)
